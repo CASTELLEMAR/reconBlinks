@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Definición de colores y función de mensajes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # Sin color
+
+log_message() {
+    local message="$1"
+    local context="${2:-info}"  # Contexto predeterminado es "info"
+    
+    local symbol=""
+    local color=""
+
+    case "$context" in
+        "success")
+            symbol="[+]"
+            color="$GREEN"
+            ;;
+        "error")
+            symbol="[-]"
+            color="$RED"
+            ;;
+        "info" | "progress")
+            symbol="[*]"
+            color="$YELLOW"
+            ;;
+    esac
+
+    echo -e "${color}${symbol} ${message}${NC}"
+}
+
+run_reconbulk() {
+    local WORK_DIR=~/scan
+    local domain="$1"
+    local wordlist=~/nameservers.txt
+    local output_file="${domain}.txt"
+
+    # Verificar que reconbulk esté instalado
+    if ! command -v reconbulk &>/dev/null; then
+        log_message "Error: reconbulk command not found. Install it and try again." "error"
+        exit 1
+    fi
+
+    # Verificar que se haya proporcionado un dominio
+    if [ -z "$domain" ]; then
+        log_message "Usage: $0 <domain>" "error"
+        exit 1
+    fi
+
+    # Verificar si el archivo wordlist existe
+    if [ ! -f "$wordlist" ]; then
+        log_message "Error: Wordlist file not found at $wordlist." "error"
+        exit 1
+    fi
+
+    # Crear el directorio de trabajo si no existe
+    mkdir -p "$WORK_DIR"
+
+    # Cambiar al directorio de trabajo
+    cd "$WORK_DIR" || exit
+
+    # Ejecutar reconbulk y redirigir la salida a un archivo
+    log_message "Starting reconbulk for domain $domain..." "info"
+    reconbulk "$domain" "$wordlist" | tee "$output_file" & disown
+
+    log_message "The reconbulk command has been initiated for the domain $domain." "success"
+    log_message "The output is being saved to the file $output_file." "success"
+}
+
+# Llamada a la función con el dominio proporcionado como argumento
+run_reconbulk "$1"
+
